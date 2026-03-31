@@ -13,7 +13,7 @@ def ai_generate_post(title: str, summary: str, max_retries: int = 3) -> Generate
     """
     Возвращает (новый_заголовок, сгенерированный_пост)
     """
-    if not title or not summary:
+    if not title.strip() or not summary.strip():
         raise ValueError("Title и summary обязательны")
 
     prompt = (

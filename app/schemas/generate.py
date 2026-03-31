@@ -13,3 +13,5 @@ class GenerateResponse(BaseModel):
 class GeneratedPostOut(GenerateResponse):
     key: str = Field(..., description="Redis-ключ записи")
     hash: str = Field(..., description="MD5 хеш оригинала")
+    is_published: bool = False
+    published_at: str | None = None

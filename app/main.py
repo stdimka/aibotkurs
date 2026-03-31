@@ -54,10 +54,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+
 # --- Подключаем роутеры (по мере реализации) --------------------------
 app.include_router(keywords.router, prefix="/api/v1", tags=["keywords"])
 app.include_router(site_sources.router, prefix="/api/v1", tags=["site_sources"])
-# app.include_router(tg_sources.router, prefix="/api/v1", tags=["tg_sources"])
+app.include_router(tg_sources.router, prefix="/api/v1", tags=["tg_sources"])
 app.include_router(posts.router, prefix="/api/v1", tags=["posts"])
 app.include_router(filtered_posts.router, prefix="/api/v1", tags=["filtered_posts"])
 app.include_router(history.router, prefix="/api/v1", tags=["history"])

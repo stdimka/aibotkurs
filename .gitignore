@@ -47,7 +47,7 @@ venv.bak/
 
 # Local settings (секреты)
 local_settings.py
-
+tg_session.session
 # Telethon session file
 *.session
 *.session-journal

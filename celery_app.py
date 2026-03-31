@@ -1,5 +1,6 @@
 from celery import Celery
 from app.config import settings
+from celery.schedules import crontab
 
 celery_app = Celery(
     "news_parser",
@@ -8,8 +9,11 @@ celery_app = Celery(
     include=[
 
         "app.tasks.parse_sites",
+        "app.tasks.parse_tg",
         "app.tasks.filter",
         "app.tasks.generate",
+        "app.tasks.publish",
+        "app.tasks.pipeline",
 
     ],
 
@@ -21,6 +25,16 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
-    worker_prefetch_multiplier=1,
-    task_acks_late=True,
+    task_track_started=True,
+    task_time_limit=300,  # 5 минут максимум на задачу
+    task_soft_time_limit=270,
 )
+
+
+# ==================== CELERY BEAT SCHEDULE ====================
+celery_app.conf.beat_schedule = {
+    'run-news-pipeline-every-30-min': {
+        'task': 'run_pipeline_task',                    # ← упрощённое имя
+        'schedule': crontab(minute='*/30'),
+    },
+}

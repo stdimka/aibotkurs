@@ -1,50 +1,70 @@
 # app/news_parser/telegram.py
-from telethon.errors import FloodWaitError, ChannelPrivateError
 import asyncio
+from telethon import TelegramClient
+from telethon.sessions import StringSession
+from telethon.errors import FloodWaitError
 
-from app.telegram.client import get_telegram_client
+from app.config import settings
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class TelegramParser:
-    async def parse_channel(self, channel_username: str, limit: int = 15, min_id: int | None = None):
-        client = await get_telegram_client()
+async def parse_tg_channel(channel: str, limit: int | None = None):
+    """
+    Асинхронный парсер Telegram-канала
+    """
+    if limit is None:
+        limit = settings.max_news_per_source_per_run
 
-        try:
-            entity = await client.get_entity(channel_username)
+    try:
+        async with TelegramClient(
+                StringSession(settings.tg_session_str),
+                settings.tg_api_id,
+                settings.tg_api_hash
+        ) as client:
 
-            kwargs = {"limit": limit}
-            if min_id:
-                kwargs["min_id"] = min_id
+            logger.info(f"Начинаем парсинг канала {channel} (limit={limit})")
 
             posts = []
-            async for message in client.iter_messages(entity, **kwargs):
-                if not message.text or len(message.text.strip()) < 15:
+            async for msg in client.iter_messages(channel, limit=limit):
+                if not msg.text or len(msg.text.strip()) < 10:
                     continue
 
                 post = {
-                    "title": message.text.split("\n")[0][:250],
-                    "url": f"https://t.me/{channel_username}/{message.id}",
-                    "summary": message.text[:500],
-                    "source": f"tg_{channel_username}",
-                    "published_at": message.date.isoformat(),
-                    "raw_text": message.text,
-                    "tg_message_id": message.id,
+                    "title": msg.text.split("\n")[0][:200] if msg.text else "Без заголовка",
+                    "url": f"https://t.me/{channel}/{msg.id}",
+                    "summary": msg.text[:800],  # ограничиваем размер
+                    "raw_text": msg.text,
+                    "published_at": msg.date.isoformat(),
+                    "source": f"tg_{channel.strip('@')}",
+                    "tg_message_id": msg.id,
                 }
                 posts.append(post)
 
-            logger.info(f"📥 @{channel_username} → получено {len(posts)} сообщений")
+            logger.info(f"Успешно получено {len(posts)} постов из @{channel}")
             return posts
 
-        except FloodWaitError as e:
-            logger.warning(f"FloodWait @{channel_username}: {e.seconds} сек.")
-            await asyncio.sleep(e.seconds + 10)
-            return []
-        except Exception as e:
-            logger.exception(f"Ошибка парсинга @{channel_username}")
-            return []
+    except FloodWaitError as e:
+        logger.warning(f"FloodWaitError: нужно подождать {e.seconds} секунд")
+        await asyncio.sleep(e.seconds + 5)
+        return []
+    except Exception as e:
+        logger.exception(f"Ошибка при парсинге канала {channel}")
+        return []
 
 
-telegram_parser = TelegramParser()
+# Для теста
+if __name__ == "__main__":
+    async def test():
+        CHANNEL = "@techmedia"  # замени на свой канал
+        posts = await parse_tg_channel(CHANNEL, limit=5)
+
+        for post in posts:
+            print("Title:", post['title'])
+            print("Link:", post['url'])
+            print("Summary:", post.get('summary')[:150] + "..." if post.get('summary') else "")
+            print("-" * 60)
+
+
+    asyncio.run(test())

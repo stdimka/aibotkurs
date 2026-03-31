@@ -13,9 +13,10 @@ except ImportError:
 
 
 class Settings(BaseModel):
-    telegram_api_id: int = API_ID
-    telegram_api_hash: str = API_HASH
-    target_channel: str = CHANNEL_USERNAME
+    tg_api_id: int = API_ID
+    tg_api_hash: str = API_HASH
+    tg_session_str: str = SESSION_STRING
+    tg_channel: str = CHANNEL_USERNAME
     ai_api_key: str = AI_API_KEY
     redis_url: str = REDIS_URL
     parsing_interval_minutes: int = PARSING_INTERVAL_MINUTES
@@ -25,6 +26,7 @@ class Settings(BaseModel):
     log_level: str = "INFO"
     max_news_per_source_per_run: int = MAX_NEWS_PER_SOURCE_PER_RUN
 
-
 settings = Settings.model_validate({})   # просто для валидации типов
+
+
 

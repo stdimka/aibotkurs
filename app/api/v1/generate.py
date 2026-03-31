@@ -40,9 +40,9 @@ async def manual_generate(request: GenerateRequest):
 
 @router.get("/", response_model=list[GeneratedPostOut])
 async def list_generated_posts(
-        skip: int = Query(0, ge=0),
-        limit: int = Query(20, ge=1, le=200),
-        redis=Depends(get_redis),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=200),
+    redis=Depends(get_redis),
 ):
     try:
         raw_keys = await redis.keys(f"{GENERATED_PREFIX}:*")
@@ -52,7 +52,7 @@ async def list_generated_posts(
         if not keys:
             return []
 
-        paginated_keys = keys[skip: skip + limit]
+        paginated_keys = keys[skip : skip + limit]
 
         result = []
         for key in paginated_keys:
@@ -67,6 +67,8 @@ async def list_generated_posts(
                     new_title=data.get("new_title"),
                     generated_post=data.get("generated_post"),
                     hash=data.get("hash"),
+                    is_published=str(data.get("is_published")).lower() in ("1", "true"),
+                    published_at=data.get("published_at"),
                 )
             )
 
