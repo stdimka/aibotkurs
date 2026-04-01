@@ -1,0 +1,70 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# === Виртуальные окружения ===
+.venv/
+venv/
+ENV/
+env/
+
+# === IDE и редакторы ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pytest_cache/
+
+# === Git и системы контроля ===
+.git/
+.gitignore
+.gitlab-ci.yml
+
+# === Docker (не копируем сам докер-конфиг в образ) ===
+docker-compose*.yml
+Dockerfile*
+.docker/
+
+# === Логи и временные файлы ===
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# === Медиа и данные (если не должны быть в образе) ===
+media/
+*.db
+*.sqlite3
+
+# === Секреты и конфиги (ОБЯЗАТЕЛЬНО!) ===
+.env
+local_settings.py
+*.key
+*.pem
+credentials.json
+
+# === Документация (не нужна в runtime) ===
+docs/
+*.md
+!README.md
