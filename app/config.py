@@ -1,32 +1,43 @@
-from pydantic import BaseModel
-from local_settings import *  # noqa
+import os
+from pydantic_settings import BaseSettings
+from typing import List, Dict, Any
 
-try:
-    from local_settings import (
-        API_ID, API_HASH, CHANNEL_USERNAME,
-        AI_API_KEY, REDIS_URL,
-        PARSING_INTERVAL_MINUTES, KEYWORDS,
-        TG_SOURCES, SITE_SOURCES,
-    )
-except ImportError:
-    raise ImportError("local_settings.py не найден в корне проекта")
+class Settings(BaseSettings):
+    # ====================== TELEGRAM ======================
+    tg_api_id: int
+    tg_api_hash: str
+    tg_session_str: str
+    tg_channel: str = "@studychannelus"
+
+    # ====================== REDIS ======================
+    redis_url: str = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+
+    # ====================== AI ======================
+    free_ai_url: str = "https://apifreellm.com/api/v1/chat"
+
+    # ====================== SOURCES ======================
+    TG_SOURCES: List[Dict[str, Any]] = [
+        {"name": "@techmedia"},
+        {"name": "@IT_today_ru"},
+    ]
+
+    SITE_SOURCES: List[Dict[str, Any]] = [
+        {"name": "habr", "url": "https://habr.com/ru/rss/articles/"},
+        {"name": "rbc", "url": "https://rssexport.rbc.ru/rbcnews/news/30/full.rss"},
+        {"name": "vc", "url": "https://vc.ru/rss"},
+        {"name": "tproger", "url": "https://tproger.ru/feed/"},
+    ]
+
+    # ====================== OTHER ======================
+    max_news_per_source_per_run: int = 10
+    parsing_interval_minutes: int = 30
+    keywords: List[str] = ["python", "ai", "startup", "telegram", "fastapi", "нейросеть"]
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
-class Settings(BaseModel):
-    tg_api_id: int = API_ID
-    tg_api_hash: str = API_HASH
-    tg_session_str: str = SESSION_STRING
-    tg_channel: str = CHANNEL_USERNAME
-    ai_api_key: str = AI_API_KEY
-    redis_url: str = REDIS_URL
-    parsing_interval_minutes: int = PARSING_INTERVAL_MINUTES
-    words: list[str] = KEYWORDS
-    tg_sources: list[str] = TG_SOURCES
-    site_sources: list[dict] = SITE_SOURCES
-    log_level: str = "INFO"
-    max_news_per_source_per_run: int = MAX_NEWS_PER_SOURCE_PER_RUN
-
-settings = Settings.model_validate({})   # просто для валидации типов
-
-
-
+# Глобальный экземпляр настроек
+settings = Settings()
