@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление TG-каналами</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-delete { background: #e74c3c; color: white; }
+        .btn-add { background: #27ae60; color: white; padding: 10px 20px; }
+        input { padding: 10px; width: 300px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Управление Telegram-каналами</h1>
+        <p>Добавляйте и удаляйте источники для парсинга.</p>
+
+        <div style="margin: 20px 0;">
+            <input type="text" id="new-channel" placeholder="@channel_name" />
+            <button onclick="addChannel()" class="btn btn-add">Добавить канал</button>
+        </div>
+
+        <table id="channels-table">
+            <thead>
+                <tr>
+                    <th>Канал</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="channels-body">
+                <!-- Заполняется динамически -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadChannels() {
+            const tbody = document.getElementById('channels-body');
+            tbody.innerHTML = '<tr><td colspan="2">Загрузка...</td></tr>';
+
+            try {
+                const response = await fetch('/api/v1/tg_sources');
+                const channels = await response.json();
+
+                let html = '';
+                channels.forEach(ch => {
+                    html += `
+                        <tr>
+                            <td><strong>${ch.name}</strong></td>
+                            <td>
+                                <button onclick="deleteChannel('${ch.name}')" class="btn btn-delete">Удалить</button>
+                            </td>
+                        </tr>`;
+                });
+
+                tbody.innerHTML = html || '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Пока нет добавленных каналов</td></tr>';
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="2">Ошибка загрузки</td></tr>';
+            }
+        }
+
+        async function addChannel() {
+            const input = document.getElementById('new-channel');
+            const name = input.value.trim();
+
+            if (!name) return alert("Введите название канала");
+
+            try {
+                const response = await fetch('/api/v1/tg_sources', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+
+                if (response.ok) {
+                    alert("Канал добавлен!");
+                    input.value = '';
+                    loadChannels();
+                } else {
+                    alert("Ошибка добавления");
+                }
+            } catch (e) {
+                alert("Не удалось добавить канал");
+            }
+        }
+
+        async function deleteChannel(name) {
+            if (!confirm(`Удалить канал ${name}?`)) return;
+
+            try {
+                const response = await fetch(`/api/v1/tg_sources/${name}`, { method: 'DELETE' });
+                if (response.ok) {
+                    alert("Канал удалён");
+                    loadChannels();
+                } else {
+                    alert("Ошибка удаления");
+                }
+            } catch (e) {
+                alert("Не удалось удалить канал");
+            }
+        }
+
+        // Загрузка при открытии
+        window.onload = loadChannels;
+    </script>
+</body>
+</html>
