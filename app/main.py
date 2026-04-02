@@ -9,6 +9,9 @@ from app.utils.logging import setup_logging, get_logger
 from app.api.v1 import keywords, site_sources, tg_sources, posts, filtered_posts, history, generate  # импортируем роутеры по мере готовности
 from app.utils.initialization import initialize_default_settings
 
+from fastapi import Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -88,3 +91,14 @@ async def health_check(request: Request):
         },
         status_code=status_code,
     )
+
+
+
+# Настройка шаблонов (папка templates должна быть в корне проекта)
+templates = Jinja2Templates(directory="templates")
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_panel(request: Request):
+    """Простая админ-панель"""
+    return templates.TemplateResponse("admin.html", {"request": request})

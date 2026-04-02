@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI News Bot — Админка</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .btn { padding: 10px 16px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #0066cc; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI News Bot — Админ панель</h1>
+        <p>Статус: <strong>Работает</strong></p>
+
+        <div>
+            <a href="/tg_sources" class="btn btn-primary">Управление TG-каналами</a>
+            <a href="/site_sources" class="btn btn-primary">Управление сайтами</a>
+            <button onclick="runPipeline()" class="btn btn-success">Запустить парсинг сейчас</button>
+        </div>
+
+        <h2>Последние сгенерированные посты</h2>
+        <table id="posts-table">
+            <thead>
+                <tr>
+                    <th>Источник</th>
+                    <th>Заголовок</th>
+                    <th>Статус</th>
+                    <th>Дата</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Заполняется через JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function runPipeline() {
+            if (confirm("Запустить полный цикл парсинга и публикации?")) {
+                alert("Задача запущена! Проверь логи.");
+                // Здесь можно добавить вызов API
+            }
+        }
+
+        // Загрузка последних постов (пока заглушка)
+        window.onload = function() {
+            console.log("Админка загружена");
+        }
+    </script>
+</body>
+</html>
