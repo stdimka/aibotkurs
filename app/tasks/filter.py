@@ -56,7 +56,7 @@ def filter_posts_task(self, previous_results: list | None = None):
                     continue
 
             # --- дедупликация по хешу ---
-            hash_digest = hashlib.md5(content.encode()).hexdigest()
+            hash_digest = hashlib.md5(content.encode()).hexdigest()[:16]  # [:16] для единообразия
             dup_key = f"news:dup:{hash_digest}"
 
             if redis.exists(dup_key):
@@ -64,7 +64,8 @@ def filter_posts_task(self, previous_results: list | None = None):
                 continue  # уже есть, пропускаем
 
             # --- сохраняем фильтрованную новость ---
-            filtered_key = f"news:filtered:{source}:{published_at}"
+            content_hash = hashlib.md5(content.encode()).hexdigest()[:16]  # тот же хеш
+            filtered_key = f"news:filtered:{source}:{content_hash}"
             redis.hset(
                 filtered_key,
                 mapping={

@@ -1,6 +1,7 @@
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Dict, Any
+
 
 class Settings(BaseSettings):
     # ====================== TELEGRAM ======================
@@ -15,13 +16,17 @@ class Settings(BaseSettings):
     # ====================== AI ======================
     free_ai_url: str = "https://apifreellm.com/api/v1/chat"
 
+    # 🔹 НОВОЕ: API-ключ для AI-провайдера (опционально, если требуется)
+    ai_api_key: str | None = None  # или просто "", если ключ не всегда нужен
+
     # ====================== SOURCES ======================
-    TG_SOURCES: List[Dict[str, Any]] = [
+    # 🔹 ВАЖНО: имена полей в нижнем регистре (как в Python-стандарте)
+    tg_sources: List[Dict[str, Any]] = [
         {"name": "@techmedia"},
         {"name": "@IT_today_ru"},
     ]
 
-    SITE_SOURCES: List[Dict[str, Any]] = [
+    site_sources: List[Dict[str, Any]] = [
         {"name": "habr", "url": "https://habr.com/ru/rss/articles/"},
         {"name": "rbc", "url": "https://rssexport.rbc.ru/rbcnews/news/30/full.rss"},
         {"name": "vc", "url": "https://vc.ru/rss"},
@@ -29,14 +34,22 @@ class Settings(BaseSettings):
     ]
 
     # ====================== OTHER ======================
+    log_level: str = "INFO"  # 🔹 Добавлено: уровень логирования
+
     max_news_per_source_per_run: int = 10
     parsing_interval_minutes: int = 30
-    keywords: List[str] = ["python", "ai", "startup", "telegram", "fastapi", "нейросеть"]
+    keywords: List[str] = ["python", "ai", "startup", "telegram", "fastapi", "нейросеть",
+                           "ИИ", "искусственный интеллект", "бот", "канал", "рассылка",
+                           "код", "разработка", "программ", "технолог", "цифр"
+                           ]
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    # 🔹 Настройки Pydantic v2 (вместо class Config)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False  # LOG_LEVEL и log_level — оба работают
+    )
 
 
 # Глобальный экземпляр настроек

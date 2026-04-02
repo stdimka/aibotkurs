@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime
 from celery import shared_task
-
+import asyncio
 from app.ai.generator import ai_generate_post
 from app.redis_sync import get_sync_redis
 from app.schemas.generate import GenerateResponse
@@ -50,28 +50,54 @@ def generate_post_task(self, filtered_key: str):
 
         logger.info(f"Генерация поста для [{source}] → {title[:70]}...")
 
-        response: GenerateResponse = ai_generate_post(title, summary)
+        response: GenerateResponse = asyncio.run(ai_generate_post(title, summary)
+                                                 )
+        if not response.success:
+            logger.error(f"❌ Не удалось сгенерировать пост: {response.error}")
+            # Возвращаем 0 — задача не выполнена, но не падаем с ошибкой
+            return 0
 
         content_hash = hashlib.md5(
-            f"{title}{summary}{published_at_str}".encode()
+            f"{title}{summary}".encode()
         ).hexdigest()[:16]
 
         generated_key = f"{GENERATED_PREFIX}:{source}:{content_hash}"
 
+        # Добавляем защиту от повторной генерации
+        if redis.exists(generated_key):
+            logger.info(f"Пост уже был сгенерирован ранее → {generated_key}")
+            return 1
+
+        # app/tasks/generate.py — внутри generate_post_task, после получения response:
+
+        # 🔹 Безопасное извлечение полей с дефолтными значениями
         redis.hset(
             generated_key,
             mapping={
-                "original_title": response.original_title,
-                "new_title": response.new_title,
-                "generated_post": response.generated_post,
-                "hash": content_hash,
-                "source": source,
+                # Обязательные поля
+                "title": str(title) if title else "",
+                "summary": str(summary) if summary else "",
+                "source": str(source) if source else "",
+                "hash": str(content_hash) if content_hash else "",
+                "generated_content": str(response.content) if response.content else "",
+                "is_published": "0",
+                "created_at": datetime.utcnow().isoformat(),
                 "generated_at": datetime.now().isoformat(),
+
+                # Опциональные поля (с дефолтами)
+                "original_title": str(getattr(response, "original_title", title)) if getattr(response, "original_title",
+                                                                                             title) else str(title),
+                "new_title": str(getattr(response, "new_title", title)) if getattr(response, "new_title",
+                                                                                   title) else str(title),
+                "generated_post": str(getattr(response, "generated_post", response.content)) if getattr(response,
+                                                                                                        "generated_post",
+                                                                                                        response.content) else "",
             },
         )
-        redis.expire(generated_key, GENERATED_TTL)
 
-        logger.info(f"Сгенерированный пост сохранён → {generated_key}")
+        redis.expire(generated_key, GENERATED_TTL)
+        deleted = redis.delete(filtered_key)
+        logger.info(f"Сгенерированный пост сохранён → {generated_key} | filtered удалён: {deleted}")
         return 1
 
     except Exception as e:
