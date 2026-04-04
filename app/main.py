@@ -169,6 +169,29 @@ async def get_recent_posts():
         return {"posts": [], "error": str(e)}
 
 
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """Страница настроек бота"""
+    return templates.TemplateResponse("settings.html", {"request": request})
+
+
+@app.post("/admin/settings")
+async def save_settings(data: dict):
+    """Сохранение настроек бота"""
+    try:
+        # Здесь в будущем можно сохранять настройки в Redis или файл
+        # Пока просто возвращаем успех
+        return {
+            "status": "success",
+            "message": "Настройки сохранены"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
 
 @app.get("/health", response_model=dict, tags=["system"])
 async def health_check(request: Request):

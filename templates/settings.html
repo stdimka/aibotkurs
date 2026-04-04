@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки бота</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f4; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; }
+        label { display: block; margin: 15px 0 5px; font-weight: bold; }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .btn-save {
+            background: #27ae60;
+            color: white;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .btn-save:hover { background: #219653; }
+        .success { color: #27ae60; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ Настройки бота</h1>
+
+        <form id="settings-form">
+            <label>Интервал парсинга (минуты)</label>
+            <input type="number" id="parsing_interval" value="30" min="10" max="1440">
+
+            <label>Максимум новостей с одного источника за запуск</label>
+            <input type="number" id="max_news" value="10" min="5" max="50">
+
+            <label>Ключевые слова для фильтрации (через запятую)</label>
+            <textarea id="keywords" rows="4" placeholder="python, ai, нейросеть, стартап, telegram"></textarea>
+
+            <label>Максимум постов для публикации за один запуск</label>
+            <input type="number" id="max_posts" value="5" min="1" max="20">
+
+            <button type="button" onclick="saveSettings()" class="btn-save">Сохранить настройки</button>
+        </form>
+
+        <div id="status" class="success"></div>
+    </div>
+
+    <script>
+        async function saveSettings() {
+            const data = {
+                parsing_interval_minutes: parseInt(document.getElementById('parsing_interval').value),
+                max_news_per_source_per_run: parseInt(document.getElementById('max_news').value),
+                keywords: document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k),
+                max_posts_per_run: parseInt(document.getElementById('max_posts').value)
+            };
+
+            try {
+                const response = await fetch('/admin/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                const statusDiv = document.getElementById('status');
+                if (result.status === "success") {
+                    statusDiv.textContent = "✅ Настройки успешно сохранены!";
+                    statusDiv.style.color = "#27ae60";
+                } else {
+                    statusDiv.textContent = "❌ Ошибка: " + result.message;
+                    statusDiv.style.color = "#e74c3c";
+                }
+            } catch (e) {
+                document.getElementById('status').innerHTML = "❌ Не удалось сохранить настройки";
+            }
+        }
+
+        // Загрузка текущих настроек при открытии страницы
+        window.onload = async function() {
+            // Пока просто заполняем значения по умолчанию
+            // В будущем здесь будет GET /admin/settings
+        };
+    </script>
+</body>
+</html>

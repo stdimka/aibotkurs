@@ -28,10 +28,12 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 15px;
+            transition: all 0.2s;
         }
         .btn:hover { transform: translateY(-2px); }
         .btn-primary { background: #3498db; color: white; }
         .btn-success { background: #2ecc71; color: white; }
+        .btn-settings { background: #9b59b6; color: white; }
         .btn-refresh { background: #95a5a6; color: white; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -48,9 +50,10 @@
         <h1>🤖 AI News Bot — Админ панель</h1>
         <p>Статус: <span class="status">Работает</span></p>
 
-        <div style="margin: 25px 0 30px 0;">
+        <div style="margin: 25px 0 35px 0;">
             <a href="/tg_sources" class="btn btn-primary">📋 Управление TG-каналами</a>
             <a href="/site_sources" class="btn btn-primary">🌐 Управление сайтами</a>
+            <a href="/settings" class="btn btn-settings">⚙️ Настройки бота</a>
             <button onclick="runPipeline()" class="btn btn-success">▶️ Запустить парсинг сейчас</button>
             <button onclick="loadRecentPosts()" class="btn btn-refresh">🔄 Обновить список</button>
         </div>
@@ -86,7 +89,7 @@
                 const response = await fetch('/admin/run_pipeline', { method: 'POST' });
                 const data = await response.json();
                 alert(data.status === "success" ? "✅ Пайплайн запущен в фоне!" : "❌ " + data.message);
-                setTimeout(loadRecentPosts, 10000); // обновить через 10 секунд после запуска
+                setTimeout(loadRecentPosts, 8000);
             } catch (e) {
                 alert("❌ Не удалось подключиться к серверу");
             } finally {
@@ -144,10 +147,7 @@
             }
         }
 
-        // Автообновление каждые 20 минут (1200 секунд)
-        setInterval(loadRecentPosts, 1200000);
-
-        // Первая загрузка при открытии страницы
+        setInterval(loadRecentPosts, 1200000); // раз в 20 минут
         window.onload = loadRecentPosts;
     </script>
 </body>

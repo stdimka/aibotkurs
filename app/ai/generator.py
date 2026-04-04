@@ -4,7 +4,7 @@ app/ai/generator.py
 """
 import asyncio
 import httpx
-import logging
+import json
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -18,80 +18,63 @@ logger = get_logger(__name__)
 
 class GenerateRequest(BaseModel):
     """Запрос к AI-провайдеру."""
-    title: str = Field(..., min_length=1, max_length=500, description="Заголовок новости")
-    summary: str = Field(..., min_length=10, max_length=2000, description="Краткое содержание")
-    tone: str = Field(default="professional", description="Стиль поста: professional, casual, humorous")
-    max_length: int = Field(default=500, ge=100, le=2000, description="Максимальная длина поста")
+    title: str = Field(..., min_length=1, max_length=500)
+    summary: str = Field(..., min_length=10, max_length=2000)
+    tone: str = Field(default="professional")
+    max_length: int = Field(default=600, ge=100, le=2000)
 
 
 class GenerateResponse(BaseModel):
     """Ответ от AI-провайдера."""
-    success: bool = Field(..., description="Успешно ли сгенерировано")
-    content: Optional[str] = Field(default=None, description="Сгенерированный текст")
-    error: Optional[str] = Field(default=None, description="Текст ошибки")
-    tokens_used: Optional[int] = Field(default=None, description="Использовано токенов")
-    model: Optional[str] = Field(default=None, description="Использованная модель")
+    success: bool
+    content: Optional[str] = None
+    error: Optional[str] = None
+    tokens_used: Optional[int] = None
+    model: Optional[str] = None
 
-    # 🔹 Добавлено поле для совместимости с кодом генерации
-    original_title: Optional[str] = Field(default=None, description="Оригинальный заголовок новости")
 
 # ====================== Промпты ======================
 
 SYSTEM_PROMPT = """Ты — профессиональный редактор новостного Telegram-канала.
-Твоя задача: создать краткий, увлекательный пост на основе новости.
+Создавай увлекательные, лаконичные и грамотные посты.
 
-Требования:
-1. Длина: 150-400 слов
-2. Стиль: {tone}, без воды и клише
-3. Структура: 
-   - Цепляющий первый абзац (лид)
-   - Основная суть новости (факты, цифры)
-   - Контекст или почему это важно
-   - Призыв к действию или вопрос аудитории (опционально)
-4. Форматирование: используй **жирный** для акцентов, но без избытка
-5. Язык: русский, грамотный, без канцеляризмов
-
-Не добавляй заголовок — он уже есть. Не используй эмодзи, если не указано иное.
-"""
+Правила:
+- Длина: 350–650 символов
+- Стиль: {tone}, живой, без канцеляризмов
+- Первый абзац должен цеплять внимание
+- Используй факты и цифры
+- Можно использовать **жирный** для акцентов
+- Не добавляй заголовок — он уже есть
+- Не используй эмодзи, если не указано явно"""
 
 USER_PROMPT_TEMPLATE = """
-Заголовок: {title}
+Заголовок новости:
+{title}
 
 Содержание:
 {summary}
 
-Создай пост для Telegram-канала. Тон: {tone}. Макс. длина: {max_length} символов.
+Напиши пост для Telegram-канала. Тон: {tone}. Максимальная длина: {max_length} символов.
 """
 
 
 # ====================== Основная функция ======================
 
-# app/ai/generator.py
-
 async def ai_generate_post(
-        title: str,
-        summary: str,
-        tone: str = "professional",
-        max_length: int = 500,
-        timeout: float = 30.0,
-        retries: int = 3,
+    title: str,
+    summary: str,
+    tone: str = "professional",
+    max_length: int = 600,
 ) -> GenerateResponse:
     """
-    Генерация поста через AI-провайдер (apifreellm.com compatible).
+    Генерация поста с улучшенной обработкой rate limit и ошибок.
     """
-    # Валидация входных данных
     try:
-        request = GenerateRequest(
-            title=title,
-            summary=summary,
-            tone=tone,
-            max_length=max_length
-        )
+        request = GenerateRequest(title=title, summary=summary, tone=tone, max_length=max_length)
     except ValueError as e:
-        logger.error(f"Ошибка валидации: {e}")
-        return GenerateResponse(success=False, error=f"Validation: {e}")
+        logger.error(f"Ошибка валидации запроса: {e}")
+        return GenerateResponse(success=False, error=f"Validation error: {e}")
 
-    # Формируем промпт
     system_prompt = SYSTEM_PROMPT.format(tone=request.tone)
     user_prompt = USER_PROMPT_TEMPLATE.format(
         title=request.title,
@@ -100,136 +83,88 @@ async def ai_generate_post(
         max_length=request.max_length
     )
 
-    # 🔹 Формат для apifreellm.com: один параметр "message"
     full_prompt = f"{system_prompt}\n\n{user_prompt}"
 
     payload = {
-        "message": full_prompt,  # ← ключевое: один строковый параметр
-        "max_tokens": min(request.max_length // 4, 1000),
-        "temperature": 0.7,
+        "message": full_prompt,
+        "max_tokens": min(request.max_length // 3, 800),
+        "temperature": 0.75,
     }
 
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "aibotkurs/1.0",
+        "User-Agent": "AIBotKurs/1.0",
     }
 
-    # Authorization только если есть ключ
-    if settings.ai_api_key:
-        headers["Authorization"] = f"Bearer {settings.ai_api_key}"
+    # Добавляем API ключ, если он есть
+    if settings.AI_API_KEY and settings.AI_API_KEY.strip():
+        headers["Authorization"] = f"Bearer {settings.AI_API_KEY}"
+        logger.info("Используется API ключ для запроса к AI")
+    else:
+        logger.info("API ключ не указан, запрос без авторизации")
 
-    last_error = None
+    # Задержки при rate limit (экспоненциальный backoff)
+    backoff_times = [6, 12, 20, 30, 45]
 
-    for attempt in range(retries):
+    for attempt, wait_time in enumerate(backoff_times, 1):
         try:
-            logger.info(f"AI запрос (попытка {attempt + 1}/{retries})")
+            logger.info(f"AI запрос (попытка {attempt}/{len(backoff_times)})")
 
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=35.0) as client:
                 response = await client.post(
-                    url=settings.free_ai_url,
-                    headers=headers,
-                    json=payload
+                    settings.free_ai_url,
+                    json=payload,
+                    headers=headers
                 )
-
-                logger.debug(f"AI API status: {response.status_code}")
 
                 if response.status_code == 200:
                     data = response.json()
-
-                    # 🔹 Парсинг ответа apifreellm.com
-                    # Пробуем разные возможные поля
                     content = (
                             data.get("generated_text") or
                             data.get("response") or
                             data.get("content") or
-                            data.get("choices", [{}])[0].get("text") or
                             data.get("choices", [{}])[0].get("message", {}).get("content", "")
                     )
 
                     if content and isinstance(content, str) and content.strip():
-                        logger.info(f"✅ Пост сгенерирован ({len(content)} симв.)")
+                        logger.info(f"✅ Пост сгенерирован ({len(content)} символов)")
                         return GenerateResponse(
                             success=True,
                             content=content.strip(),
-                            tokens_used=data.get("usage", {}).get("total_tokens"),
-                            model=data.get("model", "unknown")
+                            model=data.get("model")
                         )
-                    else:
-                        logger.warning("AI вернул пустой или некорректный контент")
-                        last_error = "Empty/invalid response from AI"
-
-                elif response.status_code == 401:
-                    logger.error("❌ Ошибка авторизации AI API")
-                    return GenerateResponse(success=False, error="Auth failed: check ai_api_key")
-
-                elif response.status_code == 400:
-                    error_detail = response.json().get("error", "Bad request")
-                    logger.error(f"❌ Ошибка в запросе к AI: {error_detail}")
-                    # Не повторяем при 400 — это ошибка формата, а не временная
-                    return GenerateResponse(success=False, error=f"Bad request: {error_detail}")
 
                 elif response.status_code == 429:
-                    logger.warning("⚠️ Rate limit, ждём...")
-                    await asyncio.sleep(2 ** attempt)
+                    logger.warning(f"Rate limit 429. Ждём {wait_time} сек...")
+                    await asyncio.sleep(wait_time)
                     continue
 
+                elif response.status_code == 401:
+                    logger.error("401 Unauthorized — проверь правильность AI_API_KEY")
+                    return GenerateResponse(success=False, error="Authorization failed - check AI_API_KEY")
+
                 elif response.status_code >= 500:
-                    logger.warning(f"⚠️ Ошибка сервера ({response.status_code}), повтор...")
-                    await asyncio.sleep(1)
+                    logger.warning(f"Ошибка сервера {response.status_code}. Повторяем...")
+                    await asyncio.sleep(3)
                     continue
 
                 else:
-                    error_text = response.text[:200] if response.text else "No details"
-                    logger.error(f"❌ AI API error ({response.status_code}): {error_text}")
-                    last_error = f"API {response.status_code}: {error_text}"
-                    break
+                    logger.error(f"AI API вернул {response.status_code}: {response.text[:200]}")
+                    await asyncio.sleep(2)
 
         except httpx.TimeoutException:
-            logger.warning(f"⏱ Таймаут (попытка {attempt + 1})")
-            last_error = "Timeout"
-            await asyncio.sleep(1)
+            logger.warning("Таймаут запроса к AI")
+            await asyncio.sleep(4)
             continue
-
-        except httpx.ConnectError as e:
-            logger.warning(f"🔌 Ошибка подключения: {e}")
-            last_error = f"Connection: {e}"
-            await asyncio.sleep(1)
-            continue
-
         except Exception as e:
-            logger.exception(f"❌ Неожиданная ошибка")
-            last_error = f"Unexpected: {e}"
-            break
-
-    logger.error(f"❌ Не удалось после {retries} попыток")
-    return GenerateResponse(success=False, error=last_error or "Unknown error")
+            logger.exception(f"Неожиданная ошибка при запросе к AI")
+            await asyncio.sleep(3)
 
 
-# ====================== Утилиты ======================
+# ====================== Утилита ======================
 
-def truncate_for_prompt(text: str, max_chars: int = 1500) -> str:
-    """
-    Обрезает текст до безопасной длины для промпта.
-
-    Args:
-        text: Исходный текст
-        max_chars: Максимальное количество символов
-
-    Returns:
-        Обрезанный текст с индикатором, если было усечение
-    """
+def truncate_for_prompt(text: str, max_chars: int = 1600) -> str:
+    """Обрезает текст для промпта"""
     if len(text) <= max_chars:
         return text
-
-    # Обрезаем по последнему предложению, чтобы не рвать мысль
-    truncated = text[:max_chars].rsplit('.', 1)[0]
-    return truncated + "..." if truncated else text[:max_chars] + "..."
-
-
-def estimate_tokens(text: str, chars_per_token: float = 4.0) -> int:
-    """
-    Грубая оценка количества токенов по тексту.
-
-    Note: Для точного подсчёта используйте токенизатор вашей модели.
-    """
-    return max(1, int(len(text) / chars_per_token))
+    return text[:max_chars].rsplit('.', 1)[0] + "..."
