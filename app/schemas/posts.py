@@ -7,3 +7,4 @@ class PostsItemOut(BaseModel):
     summary: str | None = None
     source: str
     published_at: datetime
+    image: str | None = None  # 🔹 Новое опциональное поле

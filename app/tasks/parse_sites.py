@@ -60,6 +60,8 @@ def parse_site_task(self, source_name: str):
                     "summary": news.get("summary", ""),
                     "source": source_name,
                     "published_at": news["published_at"].isoformat(),
+                    "image": news.get("image") or "",  # 🔹 Сохраняем изображение (пустая строка если нет)
+
                 },
             )
             redis.expire(news_key, 3600)

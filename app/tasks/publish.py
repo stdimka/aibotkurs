@@ -2,7 +2,7 @@ import asyncio
 import time
 from celery import shared_task
 
-from app.telegram.publisher import telegram_publisher   # используем класс, а не функцию
+from app.telegram.publisher import telegram_publisher
 from app.redis_sync import get_sync_redis
 from app.utils.logging import get_logger
 
@@ -25,26 +25,36 @@ def publish_to_telegram_task(self, generated_key: str):
             for k, v in raw_data.items()
         }
 
-        # Проверяем, опубликован ли уже
         is_published = str(data.get("is_published", "")).strip().lower() in ("1", "true", "yes")
         if is_published:
-            logger.info(f"Пост уже опубликован ранее, пропускаем: {generated_key}")
+            logger.info(f"Пост уже опубликован ранее: {generated_key}")
             return 0
 
         title = data.get("new_title") or data.get("original_title") or "Без заголовка"
         text = data.get("generated_post", "")
 
-        if not text.strip():
-            logger.warning(f"Пустой текст поста для ключа {generated_key}")
-            return 0
+        # 🔹 Извлечение изображения (самое надёжное)
+        image_url = None
+        for key in ["image", "image_url", b"image", b"image_url"]:
+            val = data.get(key)
+            if val:
+                if isinstance(val, bytes):
+                    val = val.decode("utf-8", errors="ignore")
+                if val and str(val).startswith("http"):
+                    image_url = val
+                    break
 
-        logger.info(f"Публикация в Telegram: {title[:80]}...")
+        logger.info(f"Публикация: {title[:70]}... | Изображение: {'✅' if image_url else '❌'}")
 
-        # Запускаем асинхронную публикацию из синхронной задачи
-        success = asyncio.run(telegram_publisher.publish_post(title=title, text=text))
+        success = asyncio.run(
+            telegram_publisher.publish_post(
+                title=title,
+                text=text,
+                image_url=image_url
+            )
+        )
 
         if success:
-            # Отмечаем как опубликованный
             redis.hset(generated_key, mapping={
                 "is_published": "1",
                 "published_at": time.strftime("%Y-%m-%d %H:%M:%S")

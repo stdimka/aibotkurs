@@ -46,7 +46,9 @@ async def list_posts(
                     url=data.get("url"),
                     summary=data.get("summary"),
                     source=data["source"],
-                    published_at=data["published_at"]
+                    published_at=data["published_at"],
+                    image = data.get("image") or None,  # 🔹 Возвращаем изображение
+
                 ))
             except KeyError as e:
                 logger.warning(f"Некорректная новость в Redis {key}: {e}")
