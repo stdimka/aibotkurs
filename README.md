@@ -1,80 +1,109 @@
-# 🤖 AI News Bot
+# AI News Bot
 
-Автоматический Telegram-бот, который собирает новости из RSS-сайтов и Telegram-каналов, фильтрует их, переписывает с помощью ИИ и публикует в ваш канал.
+Автоматизированный Telegram-канал с парсингом новостей, фильтрацией по ключевым словам, генерацией постов через ИИ и автоматической публикацией.
 
----
+## Основные возможности
 
-## ✨ Возможности
-
-- Парсинг новостей из **RSS** (Habr, VC.ru, RBC, Tproger и др.)
-- Парсинг постов из **Telegram-каналов**
-- Умная фильтрация по ключевым словам
-- Переписывание постов с помощью ИИ (апгрейд стиля и качества)
+- Парсинг новостей из RSS-сайтов и Telegram-каналов
+- Гибкая фильтрация по ключевым словам
+- Генерация качественных постов с помощью ИИ (с редактируемым System Prompt)
 - Автоматическая публикация в Telegram-канал
-- Полноценный **CRUD** для управления источниками через API
-- Запуск по расписанию через Celery Beat
-- Хранение состояния в Redis
+- Удобная веб-админка с поддержкой русского и английского языков
+- Полностью контейнеризированное приложение (Docker + Celery + Redis)
 
----
+## Технологии
 
-## 🛠 Технологии
+- **Backend**: FastAPI
+- **Очередь задач**: Celery + Redis
+- **Хранилище**: Redis
+- **AI**: Groq / OpenRouter / любой OpenAI-совместимый провайдер
+- **Telegram**: Telethon
+- **Админка**: Jinja2 + JavaScript
+- **Контейнеризация**: Docker Compose
 
-- **FastAPI** — веб-интерфейс и API
-- **Celery** + Redis — асинхронные задачи и очередь
-- **Telethon** — работа с Telegram (парсинг и публикация)
-- **Pydantic** + Settings — конфигурация
-- **Docker** + Docker Compose — развёртывание
-
----
-
-## 🚀 Быстрый запуск (локально)
-
-### 1. Клонируйте репозиторий
-```bash
+⚡ Быстрый старт (локально)
+# 1. Клонировать репозиторий
 git clone https://github.com/stdimka/aibotkurs.git
 cd aibotkurs
 
-2. Создайте виртуальное окружение
-python -m venv .venv
-source .venv/bin/activate    # Windows: .venv\Scripts\activate
+# 2. Создать файл настроек
+cp local_settings.example.py local_settings.py
 
-3. Установите зависимости
-pip install -r requirements.txt
+# 3. Запустить проект
+docker compose up --build -d
 
-4. Настройте конфигурацию
-cp local_setting_1.py local_settings.py
+После запуска админка доступна по адресу:
+👉 http://localhost:8000/admin
 
-Откройте local_settings.py и заполните:
+⚙️ Настройка
 
-tg_api_id
-tg_api_hash
-tg_session_str
-tg_channel
+Настройки можно менять двумя способами:
 
-5. Запустите Redis
-docker compose up --build
+через файл local_settings.py
+через веб-интерфейс /settings
 
-6. Запустите проект
-# Терминал 1 — FastAPI
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+🔑 Важные параметры
 
-# Терминал 2 — Celery Worker
-celery -A celery_app worker --pool=solo -l info
+tg_api_id        # Telegram API ID
+tg_api_hash      # Telegram API Hash
+tg_session_str   # Сессия Telegram
+tg_channel       # Канал для публикации (например: @your_channel)
 
-# Терминал 3 — Celery Beat
-celery -A celery_app beat -l info
+AI_API_KEY       # Ключ AI-провайдера
+
+👉 Ключевые слова и System Prompt лучше настраивать через админку.
 
 📁 Структура проекта
+
 aibotkurs/
 ├── app/
-│   ├── api/              # FastAPI эндпоинты
-│   ├── tasks/            # Celery задачи (parse, filter, generate, publish, pipeline)
-│   ├── news_parser/      # Парсеры (сайты + Telegram)
-│   ├── telegram/         # Публикация в канал
-│   ├── services/         # Бизнес-логика
-│   └── schemas/          # Pydantic модели
-├── local_settings.py
-├── celery_app.py
-├── docker-compose.yml
+│   ├── ai/                # Генерация постов ИИ
+│   ├── api/               # REST API
+│   ├── news_parser/       # Парсинг новостей
+│   ├── schemas/           # Pydantic схемы
+│   ├── services/          # Бизнес-логика
+│   ├── tasks/             # Celery задачи
+│   ├── telegram/          # Публикация в Telegram
+│   ├── utils/             # Утилиты
+│   ├── config.py
+│   ├── main.py
+│   └── ...
+├── templates/             # HTML админка
 ├── Dockerfile
-└── README.md
+├── docker-compose.yml
+├── celery_app.py
+├── requirements.txt
+└── run_pipeline.py
+
+🐳 Docker команды
+
+# Запуск в фоне
+docker compose up -d
+
+# Просмотр логов
+docker compose logs -f worker
+docker compose logs -f web
+
+# Перезапуск worker
+docker compose restart worker
+
+# Полная пересборка
+docker compose up --build -d
+
+# Остановка
+docker compose down
+
+
+☁️ Автодеплой на VPS
+
+Рекомендуемые инструменты:
+
+Coolify (самый простой вариант)
+Dokploy
+Docker Swarm / Portainer
+
+👉 Подробный гайд по деплою будет добавлен позже.
+
+📄 Лицензия
+
+MIT License
