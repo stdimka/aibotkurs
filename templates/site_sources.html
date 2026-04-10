@@ -1,40 +1,68 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Управление сайтами</title>
+    <title>{{ t('site_sources') }}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f4f4f4;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
         h1 { color: #2c3e50; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background: #f8f9fa; }
-        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
         .btn-delete { background: #e74c3c; color: white; }
-        .btn-add { background: #27ae60; color: white; padding: 10px 20px; }
-        input[type="text"] { padding: 10px; width: 350px; margin-right: 10px; }
-        input[type="url"] { padding: 10px; width: 400px; margin-right: 10px; }
+        .btn-add {
+            background: #27ae60;
+            color: white;
+            padding: 10px 20px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 350px;
+            margin-right: 10px;
+        }
+        input[type="url"] {
+            padding: 10px;
+            width: 400px;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🌐 Управление сайтами (RSS)</h1>
-        <p>Добавляйте RSS-источники новостей.</p>
+        <h1>🌐 {{ t('site_sources') }}</h1>
+        <p>{{ t('site_sources') }} (RSS)</p>
 
         <div style="margin: 20px 0;">
-            <input type="text" id="new-name" placeholder="Название источника (например: habr)" />
-            <input type="url" id="new-url" placeholder="https://example.com/rss" />
-            <button onclick="addSite()" class="btn btn-add">Добавить сайт</button>
+            <input type="text" id="new-name" placeholder="{{ t('site_name_placeholder') | default('Название источника (например: habr)') }}" />
+            <input type="url" id="new-url" placeholder="{{ t('site_url_placeholder') | default('https://example.com/rss') }}" />
+            <button onclick="addSite()" class="btn btn-add">{{ t('add') }}</button>
         </div>
 
         <table id="sites-table">
             <thead>
                 <tr>
-                    <th>Название</th>
+                    <th>{{ t('name') }}</th>
                     <th>URL</th>
-                    <th>Действия</th>
+                    <th>{{ t('actions') }}</th>
                 </tr>
             </thead>
             <tbody id="sites-body">
@@ -44,9 +72,11 @@
     </div>
 
     <script>
+        const currentLang = "{{ lang }}";
+
         async function loadSites() {
             const tbody = document.getElementById('sites-body');
-            tbody.innerHTML = '<tr><td colspan="3">Загрузка...</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="3">${currentLang === "en" ? "Loading..." : "Загрузка..."}</td></tr>`;
 
             try {
                 const response = await fetch('/api/v1/site_sources');
@@ -59,14 +89,18 @@
                             <td><strong>${site.name}</strong></td>
                             <td>${site.url}</td>
                             <td>
-                                <button onclick="deleteSite('${site.name}')" class="btn btn-delete">Удалить</button>
+                                <button onclick="deleteSite('${site.name}')" class="btn btn-delete">
+                                    ${currentLang === "en" ? "Delete" : "Удалить"}
+                                </button>
                             </td>
                         </tr>`;
                 });
 
-                tbody.innerHTML = html || '<tr><td colspan="3" style="text-align:center; color:#95a5a6;">Пока нет добавленных сайтов</td></tr>';
+                tbody.innerHTML = html || `<tr><td colspan="3" style="text-align:center; color:#95a5a6;">
+                    ${currentLang === "en" ? "No sites added yet" : "Пока нет добавленных сайтов"}
+                </td></tr>`;
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="3">Ошибка загрузки</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="3">${currentLang === "en" ? "Loading error" : "Ошибка загрузки"}</td></tr>`;
             }
         }
 
@@ -75,7 +109,7 @@
             const url = document.getElementById('new-url').value.trim();
 
             if (!name || !url) {
-                alert("Заполните название и URL");
+                alert(currentLang === "en" ? "Fill in name and URL" : "Заполните название и URL");
                 return;
             }
 
@@ -87,31 +121,31 @@
                 });
 
                 if (response.ok) {
-                    alert("Сайт добавлен!");
+                    alert(currentLang === "en" ? "Site added!" : "Сайт добавлен!");
                     document.getElementById('new-name').value = '';
                     document.getElementById('new-url').value = '';
                     loadSites();
                 } else {
-                    alert("Ошибка добавления сайта");
+                    alert(currentLang === "en" ? "Add error" : "Ошибка добавления сайта");
                 }
             } catch (e) {
-                alert("Не удалось добавить сайт");
+                alert(currentLang === "en" ? "Failed to add site" : "Не удалось добавить сайт");
             }
         }
 
         async function deleteSite(name) {
-            if (!confirm(`Удалить сайт "${name}"?`)) return;
+            if (!confirm((currentLang === "en" ? `Delete site "${name}"?` : `Удалить сайт "${name}"?`))) return;
 
             try {
                 const response = await fetch(`/api/v1/site_sources/${name}`, { method: 'DELETE' });
                 if (response.ok) {
-                    alert("Сайт удалён");
+                    alert(currentLang === "en" ? "Site deleted" : "Сайт удалён");
                     loadSites();
                 } else {
-                    alert("Ошибка удаления");
+                    alert(currentLang === "en" ? "Delete error" : "Ошибка удаления");
                 }
             } catch (e) {
-                alert("Не удалось удалить сайт");
+                alert(currentLang === "en" ? "Failed to delete site" : "Не удалось удалить сайт");
             }
         }
 

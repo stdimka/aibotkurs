@@ -1,76 +1,100 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Настройки бота</title>
+    <title>{{ t('bot_settings') }}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f4; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f4f4f4;
+        }
+        .container {
+            max-width: 950px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
         h1 { color: #2c3e50; }
-        label { display: block; margin: 15px 0 5px; font-weight: bold; }
+        label {
+            display: block;
+            margin: 15px 0 5px;
+            font-weight: bold;
+        }
         input, textarea {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #ddd;
             border-radius: 6px;
             box-sizing: border-box;
             font-size: 15px;
         }
-        textarea { min-height: 120px; font-family: monospace; resize: vertical; }
+        textarea {
+            min-height: 160px;
+            font-family: monospace;
+            resize: vertical;
+        }
         .btn-save {
             background: #27ae60;
             color: white;
-            padding: 14px 28px;
+            padding: 14px 32px;
             border: none;
             border-radius: 6px;
             font-size: 16px;
             cursor: pointer;
-            margin-top: 20px;
+            margin-top: 25px;
         }
         .btn-save:hover { background: #219653; }
-        .success { color: #27ae60; margin-top: 10px; font-weight: bold; }
-        .error { color: #e74c3c; margin-top: 10px; font-weight: bold; }
+        .success { color: #27ae60; margin-top: 12px; font-weight: bold; }
+        .error { color: #e74c3c; margin-top: 12px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>⚙️ Настройки бота</h1>
+        <h1>⚙️ {{ t('bot_settings') }}</h1>
 
         <form id="settings-form">
-            <label>Интервал парсинга (минуты)</label>
+            <label>{{ t('parsing_interval') }}</label>
             <input type="number" id="parsing_interval" min="10" max="1440">
 
-            <label>Максимум новостей с одного источника за запуск</label>
+            <label>{{ t('max_news_per_source') }}</label>
             <input type="number" id="max_news" min="5" max="50">
 
-            <label>Ключевые слова для фильтрации (через запятую)</label>
+            <label>{{ t('keywords') }}</label>
             <textarea id="keywords" rows="4"></textarea>
 
-            <label>System Prompt (промпт для ИИ)</label>
-            <textarea id="system_prompt" rows="10"></textarea>
+            <label>{{ t('system_prompt') }}</label>
+            <textarea id="system_prompt" rows="12"></textarea>
 
-            <button type="button" onclick="saveSettings()" class="btn-save">💾 Сохранить настройки</button>
+            <button type="button" onclick="saveSettings()" class="btn-save">{{ t('save_settings') }}</button>
         </form>
 
         <div id="status"></div>
     </div>
 
     <script>
+        const currentLang = "{{ lang }}";
+
         async function loadSettings() {
-            // Пока просто заполняем дефолтными значениями
-            // В будущем можно добавить GET-запрос для загрузки из Redis
+            // Заполняем дефолтные значения
             document.getElementById('parsing_interval').value = 30;
             document.getElementById('max_news').value = 10;
 
-            // Загружаем ключевые слова и промпт из Redis (через существующий механизм)
-            const keywordsTextarea = document.getElementById('keywords');
-            const promptTextarea = document.getElementById('system_prompt');
+            // Ключевые слова
+            document.getElementById('keywords').value =
+                currentLang === "en"
+                    ? "python, ai, neural network, startup, telegram, bot, fastapi, development"
+                    : "python, ai, нейросеть, ИИ, startup, telegram, бот, fastapi, разработка";
 
-            // Для ключевых слов используем те, что уже есть
-            keywordsTextarea.value = "python, ai, нейросеть, ИИ, startup, telegram, бот, fastapi, разработка, программирование";
-
-            // Для промпта оставляем пустым — он подгрузится из Redis при сохранении
+            // Промпт (будет загружен из Redis при сохранении, пока дефолт)
+            document.getElementById('system_prompt').value =
+                currentLang === "en"
+                    ? "You are a professional editor of a technology Telegram channel. Write engaging but concise posts. Focus on practical benefits and new opportunities. Avoid water and corporate style. Maximum 800 characters."
+                    : "Ты — профессиональный редактор технологического Telegram-канала.\nПиши увлекательно, но по делу. Используй эмодзи умеренно.\nДелай акцент на практической пользе и новых возможностях.\nИзбегай воды и корпоративного стиля. \nМаксимум 800 символов.";
         }
 
         async function saveSettings() {
@@ -95,12 +119,12 @@
                 const statusDiv = document.getElementById('status');
 
                 if (result.status === "success") {
-                    statusDiv.innerHTML = '<span class="success">✅ Настройки успешно сохранены!</span>';
+                    statusDiv.innerHTML = `<span class="success">${currentLang === "en" ? "✅ Settings saved successfully!" : "✅ Настройки успешно сохранены!"}</span>`;
                 } else {
-                    statusDiv.innerHTML = '<span class="error">❌ Ошибка: ' + (result.message || 'Неизвестная ошибка') + '</span>';
+                    statusDiv.innerHTML = `<span class="error">❌ ${result.message || (currentLang === "en" ? "Error" : "Ошибка")}</span>`;
                 }
             } catch (e) {
-                document.getElementById('status').innerHTML = '<span class="error">❌ Не удалось сохранить настройки. Проверьте соединение.</span>';
+                document.getElementById('status').innerHTML = `<span class="error">❌ ${currentLang === "en" ? "Failed to save settings" : "Не удалось сохранить настройки"}</span>`;
             }
         }
 

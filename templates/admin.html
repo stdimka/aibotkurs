@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI News Bot — Админка</title>
+    <title>{{ t('admin_title') }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -36,6 +36,22 @@
         .btn-settings { background: #9b59b6; color: white; }
         .btn-refresh { background: #95a5a6; color: white; }
 
+        .language-switch {
+            float: right;
+            margin-top: 10px;
+        }
+        .language-switch a {
+            padding: 8px 14px;
+            margin-left: 5px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .language-switch a.active {
+            background: #2c3e50;
+            color: white;
+        }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 14px; text-align: left; border-bottom: 1px solid #eee; }
         th { background: #f8f9fa; color: #2c3e50; }
@@ -47,51 +63,60 @@
 </head>
 <body>
     <div class="container">
-        <h1>🤖 AI News Bot — Админ панель</h1>
+        <div class="language-switch">
+            <a href="/admin?lang=ru" class="{{ 'active' if lang == 'ru' else '' }}">🇷🇺 Русский</a>
+            <a href="/admin?lang=en" class="{{ 'active' if lang == 'en' else '' }}">🇬🇧 English</a>
+        </div>
+
+        <h1>{{ t('admin_title') }}</h1>
         <p>Статус: <span class="status">Работает</span></p>
 
         <div style="margin: 25px 0 35px 0;">
-            <a href="/tg_sources" class="btn btn-primary">📋 Управление TG-каналами</a>
-            <a href="/site_sources" class="btn btn-primary">🌐 Управление сайтами</a>
-            <a href="/settings" class="btn btn-settings">⚙️ Настройки бота</a>
-            <button onclick="runPipeline()" class="btn btn-success">▶️ Запустить парсинг сейчас</button>
-            <button onclick="loadRecentPosts()" class="btn btn-refresh">🔄 Обновить список</button>
+            <a href="/tg_sources?lang={{ lang }}" class="btn btn-primary">{{ t('tg_channels') }}</a>
+            <a href="/site_sources?lang={{ lang }}" class="btn btn-primary">{{ t('site_sources') }}</a>
+            <a href="/settings?lang={{ lang }}" class="btn btn-settings">{{ t('bot_settings') }}</a>
+            <button onclick="runPipeline()" class="btn btn-success">{{ t('run_parsing') }}</button>
+            <button onclick="loadRecentPosts()" class="btn btn-refresh">{{ t('refresh') }}</button>
         </div>
 
-        <h2>Последние сгенерированные посты</h2>
+        <h2>{{ t('recent_posts') }}</h2>
         <table id="posts-table">
             <thead>
                 <tr>
-                    <th>Источник</th>
-                    <th>Заголовок</th>
-                    <th>Статус</th>
-                    <th>Дата генерации</th>
+                    <th>{{ t('source') }}</th>
+                    <th>{{ t('title') }}</th>
+                    <th>{{ t('status') }}</th>
+                    <th>{{ t('generation_date') }}</th>
                 </tr>
             </thead>
             <tbody id="posts-body">
-                <tr><td colspan="4" class="empty">Загрузка постов...</td></tr>
+                <tr><td colspan="4" class="empty">{{ t('no_posts_yet') }}</td></tr>
             </tbody>
         </table>
 
-        <div class="refresh-time" id="last-update">Последнее обновление: —</div>
+        <div class="refresh-time" id="last-update">{{ t('last_update') }}: —</div>
     </div>
 
     <script>
+        const currentLang = "{{ lang }}";
+
         async function runPipeline() {
-            if (!confirm("Запустить полный цикл парсинга и публикации?")) return;
+            if (!confirm(currentLang === "en" ? "Run full parsing and publishing cycle?" : "Запустить полный цикл парсинга и публикации?")) return;
 
             const btn = event.target;
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = "Запускаем...";
+            btn.textContent = currentLang === "en" ? "Launching..." : "Запускаем...";
 
             try {
-                const response = await fetch('/admin/run_pipeline', { method: 'POST' });
+                const response = await fetch('/admin/run_pipeline?lang=' + currentLang, { method: 'POST' });
                 const data = await response.json();
-                alert(data.status === "success" ? "✅ Пайплайн запущен в фоне!" : "❌ " + data.message);
+                alert(data.status === "success"
+                    ? (currentLang === "en" ? "✅ Pipeline launched in background!" : "✅ Пайплайн запущен в фоне!")
+                    : "❌ " + data.message);
                 setTimeout(loadRecentPosts, 8000);
             } catch (e) {
-                alert("❌ Не удалось подключиться к серверу");
+                alert(currentLang === "en" ? "❌ Connection error" : "❌ Не удалось подключиться к серверу");
             } finally {
                 btn.disabled = false;
                 btn.textContent = originalText;
@@ -100,16 +125,16 @@
 
         async function loadRecentPosts() {
             const tbody = document.getElementById('posts-body');
-            tbody.innerHTML = '<tr><td colspan="4" class="empty">Загрузка...</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${currentLang === "en" ? "Loading..." : "Загрузка..."}</td></tr>`;
 
             try {
-                const response = await fetch('/admin/recent_posts');
+                const response = await fetch(`/admin/recent_posts?lang=${currentLang}`);
                 const data = await response.json();
 
                 if (data.posts && data.posts.length > 0) {
                     let html = '';
                     data.posts.forEach(post => {
-                        const statusClass = post.status === 'Опубликовано' ? 'success' : 'pending';
+                        const statusClass = post.status === 'Опубликовано' || post.status === 'Published' ? 'success' : 'pending';
                         html += `
                             <tr>
                                 <td><strong>${post.source}</strong></td>
@@ -120,14 +145,14 @@
                     });
                     tbody.innerHTML = html;
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="4" class="empty">Пока нет сгенерированных постов</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="4" class="empty">${currentLang === "en" ? "No generated posts yet" : "Пока нет сгенерированных постов"}</td></tr>`;
                 }
 
                 const now = new Date();
                 document.getElementById('last-update').textContent =
-                    `Последнее обновление: ${now.toLocaleTimeString('ru-RU')}`;
+                    `${currentLang === "en" ? "Last update" : "Последнее обновление"}: ${now.toLocaleTimeString(currentLang === "en" ? "en-US" : "ru-RU")}`;
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="4" class="empty">Ошибка загрузки постов</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="4" class="empty">${currentLang === "en" ? "Loading error" : "Ошибка загрузки постов"}</td></tr>`;
             }
         }
 
@@ -135,19 +160,16 @@
             if (!dateStr) return '—';
             try {
                 const date = new Date(dateStr);
-                return date.toLocaleString('ru-RU', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                return date.toLocaleString(currentLang === "en" ? "en-US" : "ru-RU", {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
                 });
             } catch (e) {
                 return dateStr;
             }
         }
 
-        setInterval(loadRecentPosts, 1200000); // раз в 20 минут
+        setInterval(loadRecentPosts, 120000); // каждые 2 минуты
         window.onload = loadRecentPosts;
     </script>
 </body>

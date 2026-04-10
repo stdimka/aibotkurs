@@ -11,8 +11,9 @@ from app.utils.logging import get_logger
 from app.utils.initialization import initialize_default_settings
 from app.redis_sync import get_sync_redis
 from app.config import settings
+from app.translations import get_text   # ← Новый импорт
 
-logger = get_logger(__name__)  # ← Добавили глобальный logger
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -26,8 +27,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         redis_initialized = True
 
         await initialize_default_settings(redis_pool)
-
-        # Инициализация дефолтных промпта и ключевых слов
         await initialize_default_prompt_and_keywords(redis_pool)
 
         logger.info("Дефолтные настройки проверены / инициализированы")
@@ -55,6 +54,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+
 # ====================== РОУТЕРЫ ======================
 from app.api.v1 import (
     keywords, site_sources, tg_sources, posts,
@@ -69,84 +69,89 @@ app.include_router(filtered_posts.router, prefix="/api/v1", tags=["filtered_post
 app.include_router(history.router, prefix="/api/v1", tags=["history"])
 app.include_router(generate.router, prefix="/api/v1", tags=["generate"])
 
+
 # ====================== АДМИНКА ======================
 templates = Jinja2Templates(directory="templates")
 
 
+def get_lang(request: Request) -> str:
+    """Получить текущий язык из query-параметра"""
+    return request.query_params.get("lang", "ru")
+
+
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_panel(request: Request):
-    return templates.TemplateResponse("admin.html", {"request": request})
-
-
-@app.get("/tg_sources", response_class=HTMLResponse)
-async def tg_sources_page(request: Request):
-    return templates.TemplateResponse("tg_sources.html", {"request": request})
-
-
-@app.get("/site_sources", response_class=HTMLResponse)
-async def site_sources_page(request: Request):
-    return templates.TemplateResponse("site_sources.html", {"request": request})
+    lang = get_lang(request)
+    return templates.TemplateResponse("admin.html", {
+        "request": request,
+        "lang": lang,
+        "t": lambda key: get_text(key, lang)
+    })
 
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
-    return templates.TemplateResponse("settings.html", {"request": request})
+    lang = get_lang(request)
+    return templates.TemplateResponse("settings.html", {
+        "request": request,
+        "lang": lang,
+        "t": lambda key: get_text(key, lang)
+    })
 
 
-# Сохранение настроек (включая System Prompt)
+@app.get("/tg_sources", response_class=HTMLResponse)
+async def tg_sources_page(request: Request):
+    lang = get_lang(request)
+    return templates.TemplateResponse("tg_sources.html", {
+        "request": request,
+        "lang": lang,
+        "t": lambda key: get_text(key, lang)
+    })
+
+
+@app.get("/site_sources", response_class=HTMLResponse)
+async def site_sources_page(request: Request):
+    lang = get_lang(request)
+    return templates.TemplateResponse("site_sources.html", {
+        "request": request,
+        "lang": lang,
+        "t": lambda key: get_text(key, lang)
+    })
+
+
+# Сохранение настроек
 @app.post("/admin/settings")
 async def save_settings(data: dict):
     try:
         redis = get_sync_redis()
-
         for key, value in data.items():
             if key == "keywords" and isinstance(value, list):
                 redis.set("settings:keywords", json.dumps(value))
             else:
                 redis.set(f"settings:{key}", str(value))
 
-        return {
-            "status": "success",
-            "message": "Настройки успешно сохранены"
-        }
+        return {"status": "success", "message": "Настройки успешно сохранены"}
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Ошибка сохранения настроек: {str(e)}"
-        }
+        return {"status": "error", "message": str(e)}
 
 
 @app.post("/admin/run_pipeline")
 async def trigger_pipeline(request: Request):
-    lang = request.query_params.get("lang", "ru")
-
+    lang = get_lang(request)
     try:
         from celery_app import celery_app
         celery_app.send_task("run_pipeline_task")
 
-        if lang == "en":
-            message = "Pipeline successfully launched in the background!"
-        else:
-            message = "Пайплайн успешно запущен в фоне."
-
-        return {
-            "status": "success",
-            "message": message
-        }
+        message = "Pipeline successfully launched in the background!" if lang == "en" else "Пайплайн успешно запущен в фоне."
+        return {"status": "success", "message": message}
     except Exception as e:
-        if lang == "en":
-            error_msg = f"Error launching pipeline: {str(e)}"
-        else:
-            error_msg = f"Ошибка запуска пайплайна: {str(e)}"
-
-        return {
-            "status": "error",
-            "message": error_msg
-        }
+        error_msg = f"Error launching pipeline: {str(e)}" if lang == "en" else f"Ошибка запуска пайплайна: {str(e)}"
+        return {"status": "error", "message": error_msg}
 
 
 @app.get("/admin/recent_posts")
-async def get_recent_posts():
+async def get_recent_posts(request: Request):
+    lang = get_lang(request)
     try:
         redis = get_sync_redis()
         keys = redis.keys("news:generated:*")
@@ -213,16 +218,12 @@ async def health_check(request: Request):
 async def initialize_default_prompt_and_keywords(redis_pool):
     """Надёжная инициализация дефолтных промпта и ключевых слов"""
     try:
-        redis = get_sync_redis()   # используем sync клиент
+        redis = get_sync_redis()
 
-        # === Ключевые слова ===
         if not redis.exists("settings:keywords"):
             redis.set("settings:keywords", json.dumps(settings.keywords))
             logger.info(f"✅ Инициализированы дефолтные ключевые слова ({len(settings.keywords)} шт.)")
-        else:
-            logger.info("Ключевые слова уже существуют в Redis")
 
-        # === System Prompt ===
         if not redis.exists("settings:system_prompt"):
             default_prompt = """Ты — профессиональный редактор технологического Telegram-канала.
 Пиши увлекательно, но по делу. Используй эмодзи умеренно.
@@ -232,15 +233,5 @@ async def initialize_default_prompt_and_keywords(redis_pool):
 
             redis.set("settings:system_prompt", default_prompt)
             logger.info("✅ Инициализирован дефолтный System Prompt")
-        else:
-            logger.info("System Prompt уже существует в Redis")
-
     except Exception as e:
         logger.error(f"❌ Ошибка при инициализации дефолтных настроек: {e}")
-
-
-# Запуск приложения
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
