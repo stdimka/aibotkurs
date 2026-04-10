@@ -37,8 +37,7 @@ class Settings(BaseSettings):
     max_news_per_source_per_run: int = 10
     parsing_interval_minutes: int = 30
     keywords: List[str] = ["python", "ai", "startup", "telegram", "fastapi", "нейросеть",
-                           "ИИ", "искусственный интеллект", "бот", "канал", "рассылка",
-                           "код", "разработка", "программ", "технолог", "цифр"
+                           "ИИ", "искусственный интеллект", "бот", "код", "разработка",
                            ]
 
     # 🔹 Настройки Pydantic v2 (вместо class Config)

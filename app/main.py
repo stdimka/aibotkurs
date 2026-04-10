@@ -1,48 +1,35 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
+import json
 
-from fastapi import FastAPI, Request, status, BackgroundTasks
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.dependencies import init_redis_pool
-from app.utils.logging import setup_logging, get_logger
+from app.utils.logging import get_logger
 from app.utils.initialization import initialize_default_settings
-
-
 from app.redis_sync import get_sync_redis
-import json
-from datetime import datetime
+from app.config import settings
 
-
-# Импортируем роутеры
-from app.api.v1 import (
-    keywords,
-    site_sources,
-    tg_sources,
-    posts,
-    filtered_posts,
-    history,
-    generate
-)
-
-# Импорт задачи пайплайна
-from app.tasks.pipeline import run_pipeline_task
+logger = get_logger(__name__)  # ← Добавили глобальный logger
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Lifespan события: запуск и остановка приложения"""
-    logger = get_logger(__name__)
     logger.info("Запуск приложения aibot ...")
 
-    # Инициализация Redis
     redis_initialized = False
     try:
         redis_pool = await init_redis_pool()
         app.state.redis = redis_pool
         redis_initialized = True
+
         await initialize_default_settings(redis_pool)
+
+        # Инициализация дефолтных промпта и ключевых слов
+        await initialize_default_prompt_and_keywords(redis_pool)
+
         logger.info("Дефолтные настройки проверены / инициализированы")
     except Exception as e:
         logger.error(f"Ошибка инициализации Redis: {e}")
@@ -50,7 +37,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    # Shutdown
     logger.info("Остановка приложения aibot ...")
     if redis_initialized and hasattr(app.state, "redis"):
         try:
@@ -63,15 +49,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Приложение остановлено")
 
 
-# Создаём приложение
 app = FastAPI(
     title="AI News Telegram Bot",
     description="Автоматизированный новостной канал с генерацией постов через ИИ",
     lifespan=lifespan
 )
 
+# ====================== РОУТЕРЫ ======================
+from app.api.v1 import (
+    keywords, site_sources, tg_sources, posts,
+    filtered_posts, history, generate
+)
 
-# Подключаем роутеры
 app.include_router(keywords.router, prefix="/api/v1", tags=["keywords"])
 app.include_router(site_sources.router, prefix="/api/v1", tags=["site_sources"])
 app.include_router(tg_sources.router, prefix="/api/v1", tags=["tg_sources"])
@@ -80,52 +69,86 @@ app.include_router(filtered_posts.router, prefix="/api/v1", tags=["filtered_post
 app.include_router(history.router, prefix="/api/v1", tags=["history"])
 app.include_router(generate.router, prefix="/api/v1", tags=["generate"])
 
-
 # ====================== АДМИНКА ======================
 templates = Jinja2Templates(directory="templates")
 
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_panel(request: Request):
-    """Главная страница админ-панели"""
     return templates.TemplateResponse("admin.html", {"request": request})
+
 
 @app.get("/tg_sources", response_class=HTMLResponse)
 async def tg_sources_page(request: Request):
-    """Страница управления TG-каналами"""
     return templates.TemplateResponse("tg_sources.html", {"request": request})
+
 
 @app.get("/site_sources", response_class=HTMLResponse)
 async def site_sources_page(request: Request):
-    """Страница управления сайтами (RSS)"""
     return templates.TemplateResponse("site_sources.html", {"request": request})
 
-@app.post("/admin/run_pipeline")
-async def trigger_pipeline():
-    """Запуск полного пайплайна вручную"""
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    return templates.TemplateResponse("settings.html", {"request": request})
+
+
+# Сохранение настроек (включая System Prompt)
+@app.post("/admin/settings")
+async def save_settings(data: dict):
     try:
-        # Используем строку названия задачи, чтобы Celery точно её нашёл
-        from celery_app import celery_app
-        celery_app.send_task("run_pipeline_task")
+        redis = get_sync_redis()
+
+        for key, value in data.items():
+            if key == "keywords" and isinstance(value, list):
+                redis.set("settings:keywords", json.dumps(value))
+            else:
+                redis.set(f"settings:{key}", str(value))
 
         return {
             "status": "success",
-            "message": "Пайплайн успешно запущен в фоне."
+            "message": "Настройки успешно сохранены"
         }
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Ошибка запуска пайплайна: {str(e)}"
+            "message": f"Ошибка сохранения настроек: {str(e)}"
+        }
+
+
+@app.post("/admin/run_pipeline")
+async def trigger_pipeline(request: Request):
+    lang = request.query_params.get("lang", "ru")
+
+    try:
+        from celery_app import celery_app
+        celery_app.send_task("run_pipeline_task")
+
+        if lang == "en":
+            message = "Pipeline successfully launched in the background!"
+        else:
+            message = "Пайплайн успешно запущен в фоне."
+
+        return {
+            "status": "success",
+            "message": message
+        }
+    except Exception as e:
+        if lang == "en":
+            error_msg = f"Error launching pipeline: {str(e)}"
+        else:
+            error_msg = f"Ошибка запуска пайплайна: {str(e)}"
+
+        return {
+            "status": "error",
+            "message": error_msg
         }
 
 
 @app.get("/admin/recent_posts")
 async def get_recent_posts():
-    """Возвращает последние посты для админки (сначала опубликованные, потом сгенерированные)"""
     try:
-        from app.redis_sync import get_sync_redis
         redis = get_sync_redis()
-
         keys = redis.keys("news:generated:*")
         if not keys:
             return {"posts": []}
@@ -159,38 +182,12 @@ async def get_recent_posts():
             except Exception:
                 continue
 
-        # Сортируем по времени (новые сверху) и берём 10
         posts = sorted(posts, key=lambda x: x["generated_at"], reverse=True)[:10]
-
         return {"posts": posts}
 
     except Exception as e:
         print(f"Error in get_recent_posts: {e}")
         return {"posts": [], "error": str(e)}
-
-
-@app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
-    """Страница настроек бота"""
-    return templates.TemplateResponse("settings.html", {"request": request})
-
-
-@app.post("/admin/settings")
-async def save_settings(data: dict):
-    """Сохранение настроек бота"""
-    try:
-        # Здесь в будущем можно сохранять настройки в Redis или файл
-        # Пока просто возвращаем успех
-        return {
-            "status": "success",
-            "message": "Настройки сохранены"
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-
 
 
 @app.get("/health", response_model=dict, tags=["system"])
@@ -210,3 +207,40 @@ async def health_check(request: Request):
         },
         status_code=status.HTTP_200_OK if redis_ok else status.HTTP_503_SERVICE_UNAVAILABLE,
     )
+
+
+# ====================== ИНИЦИАЛИЗАЦИЯ ДЕФОЛТНЫХ НАСТРОЕК ======================
+async def initialize_default_prompt_and_keywords(redis_pool):
+    """Надёжная инициализация дефолтных промпта и ключевых слов"""
+    try:
+        redis = get_sync_redis()   # используем sync клиент
+
+        # === Ключевые слова ===
+        if not redis.exists("settings:keywords"):
+            redis.set("settings:keywords", json.dumps(settings.keywords))
+            logger.info(f"✅ Инициализированы дефолтные ключевые слова ({len(settings.keywords)} шт.)")
+        else:
+            logger.info("Ключевые слова уже существуют в Redis")
+
+        # === System Prompt ===
+        if not redis.exists("settings:system_prompt"):
+            default_prompt = """Ты — профессиональный редактор технологического Telegram-канала.
+Пиши увлекательно, но по делу. Используй эмодзи умеренно.
+Делай акцент на практической пользе и новых возможностях.
+Избегай воды и корпоративного стиля. 
+Максимум 800 символов."""
+
+            redis.set("settings:system_prompt", default_prompt)
+            logger.info("✅ Инициализирован дефолтный System Prompt")
+        else:
+            logger.info("System Prompt уже существует в Redis")
+
+    except Exception as e:
+        logger.error(f"❌ Ошибка при инициализации дефолтных настроек: {e}")
+
+
+# Запуск приложения
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
