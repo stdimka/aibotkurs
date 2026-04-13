@@ -11,7 +11,7 @@ ENV/
 
 # Environment variables and secrets
 .env
-local_settings.py
+local_settings_old.py
 local_settings_*.py
 
 # Celery

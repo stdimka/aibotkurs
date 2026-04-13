@@ -15,13 +15,13 @@ async def parse_tg_channel(channel: str, limit: int | None = None):
     Асинхронный парсер Telegram-канала
     """
     if limit is None:
-        limit = settings.max_news_per_source_per_run
+        limit = settings.MAX_NEWS_PER_SOURCE_PER_RUN
 
     try:
         async with TelegramClient(
-                StringSession(settings.tg_session_str),
-                settings.tg_api_id,
-                settings.tg_api_hash
+                StringSession(settings.TG_SESSION_STR),
+                settings.TG_API_ID,
+                settings.TG_API_HASH
         ) as client:
 
             logger.info(f"Начинаем парсинг канала {channel} (limit={limit})")

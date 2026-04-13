@@ -105,7 +105,7 @@ async def ai_generate_post(
 
             async with httpx.AsyncClient(timeout=40.0) as client:
                 response = await client.post(
-                    settings.free_ai_url,
+                    settings.FREE_AI_URL,
                     json=payload,
                     headers=headers
                 )

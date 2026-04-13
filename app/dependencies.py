@@ -14,7 +14,7 @@ redis: aioredis.Redis | None = None
 async def init_redis_pool() -> aioredis.Redis:
     """Инициализация пула подключений к Redis (вызывается в lifespan)"""
 
-    url = settings.redis_url
+    url = settings.REDIS_URL
     logger.debug(f"Инициализация Redis пула: {url}")
 
     try:

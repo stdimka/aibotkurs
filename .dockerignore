@@ -59,7 +59,7 @@ media/
 
 # === Секреты и конфиги (ОБЯЗАТЕЛЬНО!) ===
 .env
-local_settings.py
+local_settings_old.py
 *.key
 *.pem
 credentials.json

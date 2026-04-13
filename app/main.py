@@ -11,7 +11,7 @@ from app.utils.logging import get_logger
 from app.utils.initialization import initialize_default_settings
 from app.redis_sync import get_sync_redis
 from app.config import settings
-from app.translations import get_text   # ← Новый импорт
+from app.translations import get_text
 
 logger = get_logger(__name__)
 
@@ -216,14 +216,16 @@ async def health_check(request: Request):
 
 # ====================== ИНИЦИАЛИЗАЦИЯ ДЕФОЛТНЫХ НАСТРОЕК ======================
 async def initialize_default_prompt_and_keywords(redis_pool):
-    """Надёжная инициализация дефолтных промпта и ключевых слов"""
+    """Надёжная инициализация + обновление дефолтных промпта и ключевых слов"""
     try:
         redis = get_sync_redis()
 
-        if not redis.exists("settings:keywords"):
-            redis.set("settings:keywords", json.dumps(settings.keywords))
-            logger.info(f"✅ Инициализированы дефолтные ключевые слова ({len(settings.keywords)} шт.)")
+        # === КЛЮЧЕВЫЕ СЛОВА — всегда обновляем из config.py ===
+        default_keywords = settings.KEYWORDS
+        redis.set("settings:keywords", json.dumps(default_keywords))
+        logger.info(f"✅ Ключевые слова обновлены из config.py ({len(default_keywords)} шт.)")
 
+        # === SYSTEM PROMPT — обновляем только если его нет в Redis ===
         if not redis.exists("settings:system_prompt"):
             default_prompt = """Ты — профессиональный редактор технологического Telegram-канала.
 Пиши увлекательно, но по делу. Используй эмодзи умеренно.
@@ -233,5 +235,14 @@ async def initialize_default_prompt_and_keywords(redis_pool):
 
             redis.set("settings:system_prompt", default_prompt)
             logger.info("✅ Инициализирован дефолтный System Prompt")
+        else:
+            logger.info("System Prompt уже существует в Redis (оставлен как есть)")
+
     except Exception as e:
         logger.error(f"❌ Ошибка при инициализации дефолтных настроек: {e}")
+
+
+# Запуск приложения
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

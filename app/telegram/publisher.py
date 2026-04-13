@@ -25,13 +25,13 @@ class TelegramPublisher:
         Публикует пост в Telegram-канал.
         """
         if channel_username is None:
-            channel_username = settings.tg_channel
+            channel_username = settings.TG_CHANNEL
 
         try:
             async with TelegramClient(
-                StringSession(settings.tg_session_str),
-                settings.tg_api_id,
-                settings.tg_api_hash
+                StringSession(settings.TG_SESSION_STR),
+                settings.TG_API_ID,
+                settings.TG_API_HASH
             ) as client:
 
                 entity = await client.get_entity(channel_username)

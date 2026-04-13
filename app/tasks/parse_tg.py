@@ -59,7 +59,7 @@ def parse_tg_task(self, source_name: str):
             fresh_news = news_items[:]
 
         # Ограничиваем количество новостей согласно настройкам
-        fresh_news = fresh_news[: settings.max_news_per_source_per_run]
+        fresh_news = fresh_news[: settings.MAX_NEWS_PER_SOURCE_PER_RUN]
 
         if not fresh_news:
             logger.info(f"[{source_name}] Нет новых новостей после фильтрации по дате")

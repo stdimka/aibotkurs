@@ -4,8 +4,8 @@ from celery.schedules import crontab
 
 celery_app = Celery(
     "news_parser",
-    broker=settings.redis_url,     # redis://localhost:6379/0
-    backend=settings.redis_url,
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
     include=[
 
         "app.tasks.parse_sites",

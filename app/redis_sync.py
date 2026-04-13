@@ -8,14 +8,14 @@ _sync_redis: redis.Redis | None = None
 
 
 def get_sync_redis() -> redis.Redis:
-    """Ленивая инициализация sync Redis-пула для Celery задач"""
+    """Ленивая инициализация sync Redis клиента"""
     global _sync_redis
 
     if _sync_redis is None:
         logger.info("Инициализация sync Redis пула для Celery...")
 
         _sync_redis = redis.Redis.from_url(
-            settings.redis_url,
+            settings.REDIS_URL,          # ← Изменено на REDIS_URL
             decode_responses=True,
             socket_keepalive=True,
             socket_timeout=10,

@@ -12,7 +12,7 @@ async def initialize_default_settings(redis: aioredis.Redis) -> None:
     если их ещё нет в Redis.
     """
     # --- Инициализация ключевых слов ---------------------------------------
-    default_keywords = settings.keywords
+    default_keywords = settings.KEYWORDS
 
     count_before = await redis.scard("keywords")
     if count_before == 0:
